@@ -1,0 +1,2 @@
+# Phase 1 (bot_generator) uses the Python standard library only.
+# Add stream processor / MLOps dependencies here as later phases land.
