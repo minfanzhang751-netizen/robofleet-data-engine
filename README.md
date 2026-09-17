@@ -21,7 +21,10 @@ pip install -r requirements.txt
 
 ## Run the generator
 
-Events go to `stdout` (JSON lines). Interrupt with Ctrl+C.
+Events are evenly paced and written to `stdout` as one compact JSON object per
+line. Operational messages and schedule warnings go to `stderr`, so stdout can
+be piped directly into another process. Stop with Ctrl+C; SIGINT and SIGTERM
+both trigger graceful shutdown.
 
 ```bash
 python bot_generator.py --eps 5 --bots 100
@@ -31,6 +34,19 @@ python bot_generator.py --eps 5 --bots 100
 |------|---------|---------|
 | `--eps` | Events per second | 5 |
 | `--bots` | Fleet size | 100 |
+
+The event-time field, units, diagnostic thresholds, compatibility rules, and
+future Kafka key are defined in the
+[Telemetry Event Contract v1](docs/event-schema-v1.md).
+
+## Test
+
+The test suite uses only the Python standard library:
+
+```bash
+python -m unittest discover -s tests -v
+python -m py_compile bot_generator.py tests/test_bot_generator.py
+```
 
 ## Architecture
 
