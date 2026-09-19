@@ -1,2 +1,3 @@
-# Phase 1 (bot_generator) uses the Python standard library only.
-# Add stream processor / MLOps dependencies here as later phases land.
+# Phase 1 generator uses the standard library only when Kafka env is unset.
+# Module 2.3 host producer:
+confluent-kafka==2.15.1

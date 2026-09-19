@@ -1,0 +1,20 @@
+# Kind cluster for local RoboFleet development (Module 2.1 / 2.3).
+# Create with:
+#   kind create cluster --name robofleet --config k8s/kind/cluster-config.yaml
+#
+# Host Kafka access (Module 2.3):
+#   localhost:9092 -> NodePort 30092 (external bootstrap)
+#   localhost:9093 -> NodePort 30093 (broker 0 advertised)
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30092
+        hostPort: 9092
+        listenAddress: "0.0.0.0"
+        protocol: TCP
+      - containerPort: 30093
+        hostPort: 9093
+        listenAddress: "0.0.0.0"
+        protocol: TCP
