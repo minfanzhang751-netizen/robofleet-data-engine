@@ -1,0 +1,12 @@
+# Thin Helm values for Strimzi Cluster Operator (chart 1.2.0).
+# Install (from repo root):
+#   kubectl apply -f k8s/kafka/namespace.yaml
+#   helm upgrade --install strimzi-kafka-operator \
+#     oci://quay.io/strimzi-helm/strimzi-kafka-operator \
+#     --version 1.2.0 \
+#     --namespace kafka \
+#     --values k8s/strimzi/values.yaml \
+#     --wait
+replicas: 1
+watchNamespaces: []
+watchAnyNamespace: false

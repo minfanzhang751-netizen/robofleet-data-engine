@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timezone
 from threading import Event
 from types import FrameType
-from typing import IO, Sequence, TypedDict
+from typing import IO, Protocol, Sequence, TypedDict
 
 
 SCHEMA_VERSION = "1"
@@ -50,6 +50,29 @@ class TelemetryEvent(TypedDict):
     bot_id: int
     metrics: TelemetryMetrics
     diagnostics: str
+
+
+class EventSink(Protocol):
+    """Destination for generated telemetry events."""
+
+    def emit(self, event: TelemetryEvent) -> None:
+        """Write one telemetry event."""
+
+    def close(self) -> None:
+        """Flush and release sink resources."""
+
+
+class StdoutSink:
+    """Write one compact JSON object per line to a text stream."""
+
+    def __init__(self, stdout: IO[str] = sys.stdout) -> None:
+        self._stdout = stdout
+
+    def emit(self, event: TelemetryEvent) -> None:
+        print(json.dumps(event, separators=(",", ":")), file=self._stdout, flush=True)
+
+    def close(self) -> None:
+        return None
 
 
 def positive_int(value: str) -> int:
@@ -122,10 +145,12 @@ def run_generator(
     eps: int,
     total_bots: int,
     stop_event: Event,
+    sink: EventSink | None = None,
     stdout: IO[str] = sys.stdout,
     stderr: IO[str] = sys.stderr,
 ) -> None:
-    """Emit evenly paced JSON Lines until a graceful stop is requested."""
+    """Emit evenly paced events to sink until a graceful stop is requested."""
+    event_sink: EventSink = StdoutSink(stdout=stdout) if sink is None else sink
     interval_seconds = 1.0 / eps
     bot_ids = tuple(range(1, total_bots + 1))
     next_deadline = time.monotonic()
@@ -137,11 +162,7 @@ def run_generator(
             break
 
         event = generate_telemetry_event(random.choice(bot_ids))
-        print(
-            json.dumps(event, separators=(",", ":")),
-            file=stdout,
-            flush=True,
-        )
+        event_sink.emit(event)
 
         completed_at = time.monotonic()
         lag_seconds = completed_at - next_deadline
@@ -165,11 +186,18 @@ def run_generator(
 
 def main() -> None:
     """Run the telemetry simulator until SIGINT or SIGTERM."""
+    # Imported lazily so unit tests can exercise the generator without Kafka.
+    from kafka_sink import build_event_sink
+
     args = parse_args()
     stop_event = Event()
     install_signal_handlers(stop_event)
+    sink = build_event_sink()
 
-    run_generator(args.eps, args.bots, stop_event)
+    try:
+        run_generator(args.eps, args.bots, stop_event, sink=sink)
+    finally:
+        sink.close()
     print("Telemetry generator stopped gracefully.", file=sys.stderr, flush=True)
 
 
