@@ -19,7 +19,10 @@ Each message is one UTF-8 JSON object on a single line. All fields are required.
 
 ## Kafka key
 
-When Module 2 introduces a producer, the Kafka message key will be the base-10 `bot_id` encoded as UTF-8. For example, `bot_id: 42` uses the bytes for `42`. This keeps events from one robot in the same partition and preserves their per-robot order.
+The Module 2 host producer (`kafka_sink.py`) sets the Kafka message key to the
+base-10 `bot_id` encoded as UTF-8. For example, `bot_id: 42` uses the bytes for
+`42`. This keeps events from one robot in the same partition and preserves
+their per-robot order.
 
 ## Diagnostic thresholds
 
