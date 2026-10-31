@@ -58,8 +58,8 @@ class EventSink(Protocol):
     def emit(self, event: TelemetryEvent) -> None:
         """Write one telemetry event."""
 
-    def close(self) -> None:
-        """Flush and release sink resources."""
+    def close(self) -> int:
+        """Flush and release sink resources; return 0 on success, non-zero on failure."""
 
 
 class StdoutSink:
@@ -71,8 +71,8 @@ class StdoutSink:
     def emit(self, event: TelemetryEvent) -> None:
         print(json.dumps(event, separators=(",", ":")), file=self._stdout, flush=True)
 
-    def close(self) -> None:
-        return None
+    def close(self) -> int:
+        return 0
 
 
 def positive_int(value: str) -> int:
@@ -194,11 +194,14 @@ def main() -> None:
     install_signal_handlers(stop_event)
     sink = build_event_sink()
 
+    exit_code = 0
     try:
         run_generator(args.eps, args.bots, stop_event, sink=sink)
     finally:
-        sink.close()
+        exit_code = sink.close()
     print("Telemetry generator stopped gracefully.", file=sys.stderr, flush=True)
+    if exit_code != 0:
+        raise SystemExit(exit_code)
 
 
 if __name__ == "__main__":

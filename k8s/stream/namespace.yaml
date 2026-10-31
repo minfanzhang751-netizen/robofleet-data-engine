@@ -1,0 +1,7 @@
+# Module 3 application namespace (processors live here; Kafka stays in "kafka").
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: robofleet
+  labels:
+    app.kubernetes.io/part-of: robofleet-data-engine

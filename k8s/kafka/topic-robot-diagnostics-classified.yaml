@@ -1,0 +1,14 @@
+# Module 3 classification output (LLM client). Contract: docs/classified-schema-v1.md
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: robot-diagnostics-classified
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: robofleet
+spec:
+  partitions: 6
+  replicas: 1
+  config:
+    retention.ms: "86400000"
+    cleanup.policy: delete

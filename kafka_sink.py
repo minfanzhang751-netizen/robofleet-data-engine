@@ -5,11 +5,12 @@ from __future__ import annotations
 import json
 import os
 import sys
-from typing import IO, Mapping
-
-from confluent_kafka import Producer
+from typing import IO, Any, Mapping
 
 from bot_generator import EventSink, StdoutSink, TelemetryEvent
+
+DEFAULT_TOPIC = "robot-telemetry"
+DEFAULT_CLIENT_ID = "robofleet-bot-generator"
 
 
 def encode_bot_id_key(bot_id: int) -> bytes:
@@ -25,6 +26,8 @@ class KafkaTelemetrySink:
         bootstrap_servers: str,
         topic: str,
         stderr: IO[str] = sys.stderr,
+        client_id: str = DEFAULT_CLIENT_ID,
+        producer: Any | None = None,
     ) -> None:
         if not bootstrap_servers.strip():
             raise ValueError("bootstrap_servers must be a non-empty string")
@@ -32,48 +35,80 @@ class KafkaTelemetrySink:
             raise ValueError("topic must be a non-empty string")
         self._topic = topic
         self._stderr = stderr
-        self._producer = Producer(
-            {
-                "bootstrap.servers": bootstrap_servers,
-                "acks": "all",
-                "enable.idempotence": True,
-            }
+        self._bootstrap_servers = bootstrap_servers
+        self._client_id = client_id.strip() or DEFAULT_CLIENT_ID
+        self._delivery_failures = 0
+        self._unconfirmed = 0
+        if producer is not None:
+            self._producer = producer
+        else:
+            from confluent_kafka import Producer
+
+            self._producer = Producer(
+                {
+                    "bootstrap.servers": bootstrap_servers,
+                    "acks": "all",
+                    "enable.idempotence": True,
+                    "client.id": self._client_id,
+                }
+            )
+        print(
+            "Kafka sink starting: "
+            f"bootstrap={bootstrap_servers} topic={topic} client.id={self._client_id}",
+            file=self._stderr,
+            flush=True,
         )
+
+    def _on_delivery(self, err: object, _msg: object) -> None:
+        if err is not None:
+            self._delivery_failures += 1
+            print(f"Kafka delivery failed: {err}", file=self._stderr, flush=True)
+
+    def _produce_once(self, key: bytes, payload: bytes) -> None:
+        self._producer.produce(
+            self._topic,
+            key=key,
+            value=payload,
+            on_delivery=self._on_delivery,
+        )
+        self._producer.poll(0)
 
     def emit(self, event: TelemetryEvent) -> None:
         payload = json.dumps(event, separators=(",", ":")).encode("utf-8")
         key = encode_bot_id_key(event["bot_id"])
-
-        def on_delivery(err: object, _msg: object) -> None:
-            if err is not None:
-                print(f"Kafka delivery failed: {err}", file=self._stderr, flush=True)
-
         try:
-            self._producer.produce(
-                self._topic,
-                key=key,
-                value=payload,
-                on_delivery=on_delivery,
-            )
-            self._producer.poll(0)
+            self._produce_once(key, payload)
         except BufferError:
             self._producer.flush(10)
-            self._producer.produce(
-                self._topic,
-                key=key,
-                value=payload,
-                on_delivery=on_delivery,
-            )
-            self._producer.poll(0)
+            try:
+                self._produce_once(key, payload)
+            except BufferError:
+                print(
+                    "Kafka local queue still full after flush; dropping emit.",
+                    file=self._stderr,
+                    flush=True,
+                )
+                raise
 
-    def close(self) -> None:
+    def close(self) -> int:
         remaining = self._producer.flush(30)
-        if remaining > 0:
+        self._unconfirmed = int(remaining)
+        print(
+            "Kafka sink stopped: "
+            f"flush_remaining={self._unconfirmed} "
+            f"delivery_failures={self._delivery_failures}",
+            file=self._stderr,
+            flush=True,
+        )
+        if self._unconfirmed > 0:
             print(
-                f"Kafka flush left {remaining} message(s) unconfirmed.",
+                f"Kafka flush left {self._unconfirmed} message(s) unconfirmed.",
                 file=self._stderr,
                 flush=True,
             )
+        if self._unconfirmed > 0 or self._delivery_failures > 0:
+            return 1
+        return 0
 
 
 def build_event_sink(
@@ -90,9 +125,11 @@ def build_event_sink(
     bootstrap = env.get("KAFKA_BOOTSTRAP_SERVERS", "").strip()
     if not bootstrap:
         return StdoutSink(stdout=stdout)
-    topic = env.get("KAFKA_TOPIC", "robot-telemetry").strip() or "robot-telemetry"
+    topic = env.get("KAFKA_TOPIC", DEFAULT_TOPIC).strip() or DEFAULT_TOPIC
+    client_id = env.get("KAFKA_CLIENT_ID", DEFAULT_CLIENT_ID).strip() or DEFAULT_CLIENT_ID
     return KafkaTelemetrySink(
         bootstrap_servers=bootstrap,
         topic=topic,
         stderr=stderr,
+        client_id=client_id,
     )

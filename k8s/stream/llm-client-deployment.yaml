@@ -1,0 +1,38 @@
+# Mock LLM client: windows topic → classified topic (Module 4 swaps classifier).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-client
+  namespace: robofleet
+  labels:
+    app: llm-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llm-client
+  template:
+    metadata:
+      labels:
+        app: llm-client
+    spec:
+      containers:
+        - name: llm-client
+          image: robofleet-llm-client:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: robofleet-kafka-bootstrap.kafka.svc:9092
+            - name: KAFKA_INPUT_TOPIC
+              value: robot-telemetry-windows
+            - name: KAFKA_OUTPUT_TOPIC
+              value: robot-diagnostics-classified
+            - name: KAFKA_GROUP_ID
+              value: robofleet-llm-client
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi

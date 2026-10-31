@@ -1,0 +1,10 @@
+.venv
+venv
+__pycache__
+*.pyc
+.git
+.mypy_cache
+.pytest_cache
+docs/benchmarks/module-3-results-*.md
+*.log
+.env

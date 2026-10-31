@@ -99,6 +99,14 @@ Installs Strimzi Operator, a single-node KRaft Kafka cluster, and the
 
 ### Install (from repository root)
 
+Preferred (single source of truth):
+
+```bash
+./scripts/kafka-install.sh
+```
+
+Equivalent commands (kept in sync with the script):
+
 ```bash
 kubectl config use-context kind-robofleet
 
@@ -235,20 +243,8 @@ docker ps --format '{{.Names}} {{.Ports}}' | grep robofleet
 
 ### Reinstall Kafka stack after rebuild
 
-Follow [2.2 install](#install-from-repository-root), or:
-
 ```bash
-kubectl apply -f k8s/kafka/namespace.yaml
-helm upgrade --install strimzi-kafka-operator \
-  oci://quay.io/strimzi-helm/strimzi-kafka-operator \
-  --version 1.2.0 \
-  --namespace kafka \
-  --values k8s/strimzi/values.yaml \
-  --wait
-kubectl apply -f k8s/kafka/kafka-cluster.yaml
-kubectl -n kafka wait kafka/robofleet --for=condition=Ready --timeout=600s
-kubectl apply -f k8s/kafka/topic-robot-telemetry.yaml
-kubectl -n kafka wait kafkatopic/robot-telemetry --for=condition=Ready --timeout=120s
+./scripts/kafka-install.sh
 ```
 
 External Services should look like:
@@ -262,13 +258,9 @@ kubectl -n kafka get svc | grep -E 'external|dual-role-0'
 ### Host network smoke
 
 ```bash
-python3 - <<'PY'
-import socket
-for port in (9092, 9093):
-    s = socket.create_connection(("127.0.0.1", port), timeout=5)
-    s.close()
-    print(f"tcp_ok localhost:{port}")
-PY
+./scripts/kafka-host-smoke.sh
+# After starting the generator in another terminal:
+# ./scripts/kafka-host-smoke.sh --consume
 ```
 
 ### Python producer setup
@@ -291,7 +283,24 @@ python bot_generator.py --eps 2 --bots 10
 
 Without `KAFKA_BOOTSTRAP_SERVERS`, output stays on stdout (Module 1 behavior).
 
+### Producer contract
+
+- `produce` is asynchronous: `emit` returning does not mean the broker has
+  the message. `close()` calls `flush(30)` and drives delivery callbacks.
+- Local queue full (`BufferError`): flush once and retry; a second failure
+  raises (process fails loudly).
+- stderr (never stdout) logs sink start (`bootstrap` / `topic` / `client.id`)
+  and stop (`flush_remaining` / `delivery_failures`).
+- Exit code: `0` if flush confirms all messages and there were no delivery
+  failures; non-zero if `flush` left messages unconfirmed or any delivery
+  callback reported an error. Stdout-only mode always exits `0` after a
+  clean stop.
+- Known local limits (not production): PLAINTEXT listeners, RF=1.
+
 ### Consume from the host to verify
+
+Prefer `./scripts/kafka-host-smoke.sh --consume` while the generator runs.
+Manual equivalent:
 
 ```bash
 python - <<'PY'
@@ -345,5 +354,6 @@ from the host. Mapping only bootstrap is not enough.
 - `k8s/kind/cluster-config.yaml` — host port maps
 - `k8s/kafka/kafka-cluster.yaml` — external listener
 - `kafka_sink.py` — confluent-kafka producer wrapper
-- `bot_generator.py` — pluggable sink + graceful `close()`
+- `bot_generator.py` — pluggable sink + graceful `close()` exit code
+- `scripts/kafka-install.sh`, `scripts/kafka-host-smoke.sh`
 - `requirements.txt`, `.env.example`

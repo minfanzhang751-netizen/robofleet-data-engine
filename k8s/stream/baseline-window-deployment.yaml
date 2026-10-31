@@ -1,0 +1,39 @@
+# Handwritten baseline window worker (comparison path; memory state only).
+# Image must be kind-loaded as robofleet-baseline:local (see stream-install.sh).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: baseline-window
+  namespace: robofleet
+  labels:
+    app: baseline-window
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: baseline-window
+  template:
+    metadata:
+      labels:
+        app: baseline-window
+    spec:
+      containers:
+        - name: baseline-window
+          image: robofleet-baseline:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: robofleet-kafka-bootstrap.kafka.svc:9092
+            - name: KAFKA_INPUT_TOPIC
+              value: robot-telemetry
+            - name: KAFKA_OUTPUT_TOPIC
+              value: robot-telemetry-windows-baseline
+            - name: KAFKA_GROUP_ID
+              value: robofleet-baseline-windows
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi

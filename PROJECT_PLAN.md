@@ -9,10 +9,15 @@ The system consists of 5 core modules, built for a WSL 2 (Ubuntu) local environm
 
 - **Module 1: Data Generator (Completed)** 
   A Python script generating mock robot telemetry (JSON) and unstructured status logs at a configurable EPS (Events Per Second), outputting to `stdout`.
-- **Module 2: Message Broker** 
-  Apache Kafka deployed within a local Kubernetes cluster (Minikube/Kind), likely using the Strimzi Operator for cloud-native Kafka management.
-- **Module 3: Stream Processor** 
-  A Python-based streaming app (e.g., Faust or PySpark Structured Streaming) that consumes the Kafka topic, performs sliding-window aggregations (e.g., average battery temp), and acts as a client for the MLOps API.
+- **Module 2: Message Broker (Completed locally)** 
+  Apache Kafka on Kind via the Strimzi Operator (KRaft single node), topic
+  `robot-telemetry`, and a host Python producer (`kafka_sink.py`) publishing
+  v1 telemetry with `bot_id` as the message key.
+- **Module 3: Stream Processor (Completed locally)** 
+  In-cluster PySpark Structured Streaming (primary) plus handwritten baseline
+  comparator: event-time sliding windows (60s/10s, 30s watermark) into Kafka
+  topics, then a mock LLM client service emitting classifications (Module 4
+  swaps the model backend).
 - **Module 4: Edge MLOps Layer (GPU Accelerated)** 
   An LLM inference API (e.g., vLLM or FastAPI) utilizing an NVIDIA RTX 4090 via Kubernetes GPU pass-through. It receives unstructured logs from the Stream Processor and returns real-time classifications (Safe/Warning/Critical).
 - **Module 5: Observability** 
@@ -27,7 +32,9 @@ Whenever you generate code or configurations for this project, you MUST adhere t
 5. **Infrastructure as Code (IaC):** K8s deployments must be written in clean, declarative YAML files.
 
 ## 4. Current Status & Next Steps
-We have completed Phase 1 (Data Generator). We are moving towards Phase 2 (Kafka & K8s deployment) and Phase 3 (vLLM on RTX 4090).
+Modules 1–3 are in place locally (generator, Kind/Strimzi Kafka, in-cluster
+PySpark + baseline + mock LLM client). Next: Module 4 real vLLM on RTX 4090,
+then observability (Module 5).
 
 **ACTION REQUIRED:**
 Do NOT generate any code right now. Simply acknowledge that you have read, understood, and internalized this architecture and these engineering standards. Reply with: "Context loaded successfully. I understand the architecture and engineering standards. Ready for the next phase when you are."
