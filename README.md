@@ -6,15 +6,16 @@ Kubernetes-native stream processing and MLOps platform. A simulated fleet of aut
 
 - Module 1: hardened telemetry generator (schema v1, SIGTERM, diagnostics)
 - Module 2: Kind + Strimzi Kafka + host producer — [runbook](docs/module-2.md)
-  (sections 2.1 / 2.2 / 2.3); producer failure/exit contract hardened
+- Module 3: in-cluster PySpark Structured Streaming + baseline comparator +
+  mock LLM client — [runbook](docs/module-3.md)
 
-Later: stream processing, vLLM on RTX 4090, Prometheus/Grafana.
+Later: real vLLM on RTX 4090, Prometheus/Grafana.
 
 ## Prerequisites
 
 - Python 3.11+ (developed on 3.14)
 - Git
-- For Module 2.1+: Docker Desktop (WSL2), `kubectl`, `kind` (and `helm` for 2.2+)
+- For Module 2+: Docker Desktop (WSL2), `kubectl`, `kind`, `helm`
 
 ## Setup
 
@@ -24,16 +25,11 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Run the generator
-
-Events are evenly paced. By default each event is one compact JSON object on
-`stdout`. Set `KAFKA_BOOTSTRAP_SERVERS` (see `.env.example`) to publish to
-Kafka instead; operational messages still go to `stderr`. Stop with Ctrl+C;
-SIGINT and SIGTERM both flush the sink and shut down gracefully. If Kafka
-flush leaves unconfirmed messages or delivery failures occurred, the process
-exits non-zero after the graceful-stop line on stderr.
+## Run the generator (host → Kafka)
 
 ```bash
+cp -n .env.example .env
+set -a && source .env && set +a
 python bot_generator.py --eps 5 --bots 100
 ```
 
@@ -42,18 +38,22 @@ python bot_generator.py --eps 5 --bots 100
 | `--eps` | Events per second | 5 |
 | `--bots` | Fleet size | 100 |
 
-The event-time field, units, diagnostic thresholds, compatibility rules, and
-Kafka key encoding are defined in the
-[Telemetry Event Contract v1](docs/event-schema-v1.md).
+Contracts: [telemetry v1](docs/event-schema-v1.md), [windows v1](docs/window-schema-v1.md),
+[classified v1](docs/classified-schema-v1.md).
+
+## Module 3 (stream) quick start
+
+```bash
+./scripts/kafka-install.sh    # if Kafka not already up
+./scripts/stream-install.sh   # topics + images + Deployments
+./scripts/bench-module-3.sh   # snapshot lag/resources under load
+```
 
 ## Test
 
-Install deps from `requirements.txt` (includes `confluent-kafka` for the Kafka
-sink tests; stdout-only paths still use the standard library):
-
 ```bash
 python -m unittest discover -s tests -v
-python -m py_compile bot_generator.py kafka_sink.py tests/test_bot_generator.py tests/test_kafka_sink.py
+python -m py_compile bot_generator.py kafka_sink.py stream/*.py services/llm_client/*.py
 ```
 
 ## Architecture

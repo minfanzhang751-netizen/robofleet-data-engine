@@ -1,0 +1,50 @@
+# Primary PySpark Structured Streaming worker (local[2] MVP).
+# ENTRYPOINT runs entrypoint-spark.sh → spark_window_job.py; checkpoint on PVC.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-window
+  namespace: robofleet
+  labels:
+    app: spark-window
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-window
+  template:
+    metadata:
+      labels:
+        app: spark-window
+    spec:
+      securityContext:
+        fsGroup: 1001
+      containers:
+        - name: spark-window
+          image: robofleet-spark:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: robofleet-kafka-bootstrap.kafka.svc:9092
+            - name: KAFKA_INPUT_TOPIC
+              value: robot-telemetry
+            - name: KAFKA_OUTPUT_TOPIC
+              value: robot-telemetry-windows
+            - name: SPARK_CHECKPOINT_DIR
+              value: /checkpoints/robot-telemetry-windows
+            - name: SPARK_MASTER
+              value: local[2]
+          volumeMounts:
+            - name: checkpoints
+              mountPath: /checkpoints
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+      volumes:
+        - name: checkpoints
+          persistentVolumeClaim:
+            claimName: spark-windows-checkpoint

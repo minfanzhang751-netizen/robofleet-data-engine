@@ -1,0 +1,13 @@
+# Durable checkpoint volume for Spark Structured Streaming (not business data).
+# Mounted at /checkpoints in the spark-window Deployment.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: spark-windows-checkpoint
+  namespace: robofleet
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
