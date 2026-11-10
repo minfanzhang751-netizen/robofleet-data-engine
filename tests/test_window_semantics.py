@@ -108,6 +108,43 @@ class EventTimeWindowEngineTests(unittest.TestCase):
             if window_event["bot_id"] == 7:
                 self.assertNotEqual(window_event["metrics_avg"]["battery_level_pct"], 99.0)
 
+    def test_status_log_keeps_earliest_eight_in_event_time_order(self) -> None:
+        """Out-of-order diagnostics sort by event time and drop past the cap."""
+        engine = EventTimeWindowEngine(processor="baseline")
+        t0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        metrics = {
+            "battery_level_pct": 80.0,
+            "battery_temp_c": 40.0,
+            "motor_torque_nm": 100.0,
+        }
+        for index in reversed(range(10)):
+            _closed, dropped = engine.ingest(
+                bot_id=1,
+                event_time=t0 + timedelta(seconds=index),
+                metrics=metrics,
+                diagnostics=f"line-{index}",
+            )
+            self.assertFalse(dropped)
+        closed, _dropped = engine.ingest(
+            bot_id=1,
+            event_time=t0 + timedelta(seconds=120),
+            metrics=metrics,
+            diagnostics="advance",
+        )
+        matching = [
+            event
+            for event in closed
+            if datetime.fromisoformat(event["window_start"])
+            <= t0
+            < datetime.fromisoformat(event["window_end"])
+            and t0 + timedelta(seconds=9) < datetime.fromisoformat(event["window_end"])
+        ]
+        self.assertGreaterEqual(len(matching), 1)
+        self.assertEqual(
+            matching[0]["status_log"],
+            "\n".join(f"line-{index}" for index in range(8)),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

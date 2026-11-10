@@ -6,7 +6,7 @@
 # after success the three Pods idle-poll until telemetry arrives.
 #
 # Steps:
-#   1. Apply Strimzi KafkaTopic CRs for windows / baseline / classified; wait Ready.
+#   1. Apply Strimzi KafkaTopic CRs for windows / baseline / classified / dlq; wait Ready.
 #   2. Build three local images (baseline, llm-client, spark).
 #   3. kind load into the Kind node (images are not on a registry).
 #   4. Apply namespace, Spark checkpoint PVC, three Deployments; wait rollout.
@@ -22,10 +22,12 @@ echo "Applying Module 3 Kafka topics..."
 kubectl apply -f k8s/kafka/topic-robot-telemetry-windows.yaml
 kubectl apply -f k8s/kafka/topic-robot-telemetry-windows-baseline.yaml
 kubectl apply -f k8s/kafka/topic-robot-diagnostics-classified.yaml
+kubectl apply -f k8s/kafka/topic-robot-diagnostics-dlq.yaml
 # apply accepts the CR; wait until Topic Operator has created partitions.
 kubectl -n kafka wait kafkatopic/robot-telemetry-windows --for=condition=Ready --timeout=120s
 kubectl -n kafka wait kafkatopic/robot-telemetry-windows-baseline --for=condition=Ready --timeout=120s
 kubectl -n kafka wait kafkatopic/robot-diagnostics-classified --for=condition=Ready --timeout=120s
+kubectl -n kafka wait kafkatopic/robot-diagnostics-dlq --for=condition=Ready --timeout=120s
 
 echo "Building images..."
 # Context is repo root (``.’’) so Dockerfiles can COPY stream/ and services/.

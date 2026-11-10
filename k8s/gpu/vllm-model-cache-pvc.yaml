@@ -1,0 +1,12 @@
+# Hugging Face cache for the vLLM pod. Weights stay on this machine's disk.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vllm-model-cache
+  namespace: robofleet
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi

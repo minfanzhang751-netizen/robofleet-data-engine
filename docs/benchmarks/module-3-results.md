@@ -23,7 +23,7 @@ spark-window-5658bd98-w6khn        1/1     Running   0          124m   10.244.0.
 error: Metrics API not available
 metrics-server not available
 ```
-- Load start (UTC): `2026-10-24T19:42:08Z`
+- Load start (UTC): `2026-10-24T19:42:08Z`Add Module 3 windowing and harden the Module 2 producer
 
 ## Lag before load
 

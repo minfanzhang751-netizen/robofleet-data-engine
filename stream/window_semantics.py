@@ -17,7 +17,7 @@ keep these concepts semi-transparent:
 State model (maps to Spark state conceptually):
 
 - Key: ``(bot_id, window_start, window_end)``
-- Value: running sums / count in ``_Agg``
+- Value: running sums / count plus diagnostic lines in ``_Agg``
 - Windows are created lazily when an on-time event lands in them; they are not
   pre-instantiated on a wall-clock timer.
 """
@@ -33,6 +33,9 @@ WINDOW_SIZE = timedelta(seconds=60)
 WINDOW_SLIDE = timedelta(seconds=10)
 WATERMARK_DELAY = timedelta(seconds=30)
 SCHEMA_VERSION = "1"
+# Earliest status lines kept on a closed window, in event-time order.
+# Spark's ``slice(..., 1, 8)`` must use the same cap.
+STATUS_LOG_LIMIT = 8
 
 
 class MetricsAvg(TypedDict):
@@ -57,6 +60,7 @@ class WindowEvent(TypedDict):
     bot_id: int
     metrics_avg: MetricsAvg
     event_count: int
+    status_log: str
     processor: str
     emitted_at: str
 
@@ -119,13 +123,28 @@ class _Agg:
     battery_level_pct: float = 0.0
     battery_temp_c: float = 0.0
     motor_torque_nm: float = 0.0
+    logs: list[tuple[datetime, str]] = field(default_factory=list)
 
-    def add(self, metrics: Mapping[str, float]) -> None:
-        """Fold one telemetry ``metrics`` object into this aggregate."""
+    def add(
+        self,
+        metrics: Mapping[str, float],
+        event_time: datetime,
+        diagnostics: str,
+    ) -> None:
+        """Fold one telemetry event's metrics and status text into this aggregate."""
         self.count += 1
         self.battery_level_pct += float(metrics["battery_level_pct"])
         self.battery_temp_c += float(metrics["battery_temp_c"])
         self.motor_torque_nm += float(metrics["motor_torque_nm"])
+        text = diagnostics.strip()
+        if text:
+            self.logs.append((event_time, text))
+
+    def status_log(self) -> str:
+        """Earliest ``STATUS_LOG_LIMIT`` diagnostic lines, event-time order."""
+        ordered = sorted(self.logs, key=lambda item: (item[0], item[1]))
+        lines = [text for _event_time, text in ordered[:STATUS_LOG_LIMIT]]
+        return "\n".join(lines)
 
     def averages(self) -> MetricsAvg:
         """Return rounded means for the window-schema ``metrics_avg`` object."""
@@ -173,6 +192,7 @@ class EventTimeWindowEngine:
         bot_id: int,
         event_time: datetime,
         metrics: Mapping[str, float],
+        diagnostics: str = "",
     ) -> tuple[list[WindowEvent], bool]:
         """Ingest one on-stream telemetry event.
 
@@ -199,7 +219,7 @@ class EventTimeWindowEngine:
             if agg is None:
                 agg = _Agg()
                 self._aggs[key] = agg
-            agg.add(metrics)
+            agg.add(metrics, event_time, diagnostics)
 
         closed = self._emit_closed(wm) if wm is not None else []
         return closed, False
@@ -217,16 +237,7 @@ class EventTimeWindowEngine:
         results: list[WindowEvent] = []
         for (bot_id, start, end), agg in closed:
             results.append(
-                WindowEvent(
-                    schema_version=SCHEMA_VERSION,
-                    window_start=to_iso(start),
-                    window_end=to_iso(end),
-                    bot_id=bot_id,
-                    metrics_avg=agg.averages(),
-                    event_count=agg.count,
-                    processor=self.processor,
-                    emitted_at=to_iso(emitted_at),
-                )
+                self._to_window_event(bot_id, start, end, agg, emitted_at)
             )
         return results
 
@@ -243,18 +254,30 @@ class EventTimeWindowEngine:
         results: list[WindowEvent] = []
         for (bot_id, start, end), agg in items:
             results.append(
-                WindowEvent(
-                    schema_version=SCHEMA_VERSION,
-                    window_start=to_iso(start),
-                    window_end=to_iso(end),
-                    bot_id=bot_id,
-                    metrics_avg=agg.averages(),
-                    event_count=agg.count,
-                    processor=self.processor,
-                    emitted_at=to_iso(emitted_at),
-                )
+                self._to_window_event(bot_id, start, end, agg, emitted_at)
             )
         return results
+
+    def _to_window_event(
+        self,
+        bot_id: int,
+        start: datetime,
+        end: datetime,
+        agg: _Agg,
+        emitted_at: datetime,
+    ) -> WindowEvent:
+        """Shape one closed aggregate into a window-schema-v1 payload."""
+        return WindowEvent(
+            schema_version=SCHEMA_VERSION,
+            window_start=to_iso(start),
+            window_end=to_iso(end),
+            bot_id=bot_id,
+            metrics_avg=agg.averages(),
+            event_count=agg.count,
+            status_log=agg.status_log(),
+            processor=self.processor,
+            emitted_at=to_iso(emitted_at),
+        )
 
 
 def gold_window_averages(
@@ -309,9 +332,11 @@ def iter_closed_windows_offline(
     for event in ordered:
         metrics = event["metrics"]  # type: ignore[index]
         assert isinstance(metrics, Mapping)
+        diagnostics = event.get("diagnostics", "")
         closed, _dropped = engine.ingest(
             bot_id=int(event["bot_id"]),  # type: ignore[arg-type]
             event_time=parse_event_time(str(event["timestamp"])),
             metrics=metrics,  # type: ignore[arg-type]
+            diagnostics=str(diagnostics) if diagnostics is not None else "",
         )
         yield from closed

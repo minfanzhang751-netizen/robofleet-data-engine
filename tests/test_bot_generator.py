@@ -79,7 +79,7 @@ class TelemetryEventTests(unittest.TestCase):
                     battery_temp_c=55.0,
                     motor_torque_nm=270.0,
                 ),
-                "Battery voltage low.",
+                bot_generator.LOW_BATTERY_DIAGNOSTIC,
             ),
             (
                 metrics(
@@ -87,7 +87,7 @@ class TelemetryEventTests(unittest.TestCase):
                     battery_temp_c=55.0,
                     motor_torque_nm=270.0,
                 ),
-                "Motor temperature high.",
+                bot_generator.HIGH_TEMP_DIAGNOSTIC,
             ),
             (
                 metrics(
@@ -95,7 +95,7 @@ class TelemetryEventTests(unittest.TestCase):
                     battery_temp_c=54.99,
                     motor_torque_nm=270.0,
                 ),
-                "Overcurrent protection active.",
+                bot_generator.HIGH_TORQUE_DIAGNOSTIC,
             ),
         )
 

@@ -32,6 +32,24 @@ GENERAL_DIAGNOSTICS: tuple[str, ...] = (
     "Data link interrupted.",
 )
 
+# Multi-sentence operator logs. Priority matches the numeric bands, but the
+# text is what the Module 4 model reads; the prompt does not repeat the bands.
+LOW_BATTERY_DIAGNOSTIC = (
+    "Battery pack voltage has fallen into the low-reserve band. "
+    "The robot is drawing the last usable capacity and should return to a charger. "
+    "Continued driving risks an unplanned stop."
+)
+HIGH_TEMP_DIAGNOSTIC = (
+    "Battery temperature is in the high band under load. "
+    "Thermal margin on the pack is nearly gone. "
+    "Reduce torque or pause the mission until the pack cools."
+)
+HIGH_TORQUE_DIAGNOSTIC = (
+    "Motor current has tripped the overcurrent guard. "
+    "The drive is holding torque at the protection limit. "
+    "Inspect the mechanism for a jam before commanding another move."
+)
+
 
 class TelemetryMetrics(TypedDict):
     """Numeric measurements included in a telemetry event."""
@@ -104,13 +122,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def select_diagnostic(metrics: TelemetryMetrics) -> str:
-    """Choose a diagnostic consistent with metrics using fixed priority."""
+    """Choose a status log consistent with metrics using fixed priority.
+
+    Threshold hits return a short operator log (several sentences). Nominal
+    metrics keep a single general status sentence.
+    """
     if metrics["battery_level_pct"] <= LOW_BATTERY_THRESHOLD_PCT:
-        return "Battery voltage low."
+        return LOW_BATTERY_DIAGNOSTIC
     if metrics["battery_temp_c"] >= HIGH_BATTERY_TEMP_THRESHOLD_C:
-        return "Motor temperature high."
+        return HIGH_TEMP_DIAGNOSTIC
     if metrics["motor_torque_nm"] >= HIGH_MOTOR_TORQUE_THRESHOLD_NM:
-        return "Overcurrent protection active."
+        return HIGH_TORQUE_DIAGNOSTIC
     return random.choice(GENERAL_DIAGNOSTICS)
 
 

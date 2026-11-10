@@ -7,8 +7,26 @@
 #   localhost:9093 -> NodePort 30093 (broker 0 advertised)
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+# Pods that set runtimeClassName nvidia use this runtime. The binary comes
+# from the kindest/node:v1.37.0-gpu image (./scripts/build-kind-gpu-node.sh).
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia]
+      runtime_type = "io.containerd.runc.v2"
+      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia.options]
+        BinaryName = "/usr/bin/nvidia-container-runtime"
+        # containerd passes this runtime a cgroupfs path. true makes runc
+        # expect the systemd "slice:prefix:name" form and the sandbox never starts.
+        SystemdCgroup = false
 nodes:
   - role: control-plane
+    # Image ENV NVIDIA_VISIBLE_DEVICES=all makes Docker Desktop's nvidia
+    # runtime inject the 4090 into this node. Pods get the GPU from the
+    # containerd runtime above, not from the /dev/null mount.
+    image: kindest/node:v1.37.0-gpu
+    extraMounts:
+      - hostPath: /dev/null
+        containerPath: /var/run/nvidia-container-devices/all
     extraPortMappings:
       - containerPort: 30092
         hostPort: 9092

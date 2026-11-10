@@ -37,7 +37,7 @@ from pyspark.sql.types import (
 DEFAULT_BOOTSTRAP = "robofleet-kafka-bootstrap.kafka.svc:9092"
 DEFAULT_INPUT_TOPIC = "robot-telemetry"
 DEFAULT_OUTPUT_TOPIC = "robot-telemetry-windows"
-DEFAULT_CHECKPOINT = "/tmp/spark-checkpoints/robot-telemetry-windows"
+DEFAULT_CHECKPOINT = "/tmp/spark-checkpoints/robot-telemetry-windows-v2"
 PROCESSOR = "spark"
 
 # Must match telemetry event-schema-v1 so from_json does not drop fields.
@@ -97,7 +97,7 @@ def run_job(
     1. ``readStream`` Kafka → ``raw`` binary key/value rows.
     2. Parse JSON value with ``TELEMETRY_SCHEMA``; derive ``event_time``.
     3. ``withWatermark(event_time, 30 seconds)`` for lateness.
-    4. ``groupBy(bot_id, window(60s, 10s)).agg(avg, count)``.
+    4. ``groupBy(bot_id, window(60s, 10s)).agg(avg, count, status_log)``.
     5. Shape columns to window-schema-v1; JSON-encode for Kafka value.
     6. ``writeStream`` to Kafka with checkpoint + append mode; block on
        ``awaitTermination``.
@@ -135,6 +135,35 @@ def run_job(
             F.avg("metrics.battery_temp_c").alias("battery_temp_c"),
             F.avg("metrics.motor_torque_nm").alias("motor_torque_nm"),
             F.count(F.lit(1)).alias("event_count"),
+            # Earliest 8 non-empty diagnostics by event time. Cap matches
+            # stream.window_semantics.STATUS_LOG_LIMIT (this image does not
+            # import that module).
+            F.coalesce(
+                F.array_join(
+                    F.transform(
+                        F.slice(
+                            F.filter(
+                                F.array_sort(
+                                    F.collect_list(
+                                        F.struct(
+                                            F.col("event_time").alias("event_time"),
+                                            F.coalesce(
+                                                F.col("diagnostics"), F.lit("")
+                                            ).alias("diagnostics"),
+                                        )
+                                    )
+                                ),
+                                lambda row: row.getField("diagnostics") != F.lit(""),
+                            ),
+                            1,
+                            8,
+                        ),
+                        lambda row: row.getField("diagnostics"),
+                    ),
+                    "\n",
+                ),
+                F.lit(""),
+            ).alias("status_log"),
         )
         .select(
             F.lit("1").alias("schema_version"),
@@ -151,6 +180,7 @@ def run_job(
                 F.round("motor_torque_nm", 4).alias("motor_torque_nm"),
             ).alias("metrics_avg"),
             F.col("event_count").cast("int").alias("event_count"),
+            F.col("status_log"),
             F.lit(PROCESSOR).alias("processor"),
             F.date_format(F.current_timestamp(), "yyyy-MM-dd'T'HH:mm:ss.SSSXXX").alias(
                 "emitted_at"
