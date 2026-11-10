@@ -11,7 +11,7 @@ Each message is one UTF-8 JSON object on a single line. All fields are required.
 | `metrics.battery_level_pct` | number | Battery level in percent, from 0 through 100. |
 | `metrics.battery_temp_c` | number | Battery temperature in degrees Celsius, from 30 through 60. |
 | `metrics.motor_torque_nm` | number | Motor torque in newton-metres, from 0 through 300. |
-| `diagnostics` | string | Human-readable status text consistent with the metric thresholds below. |
+| `diagnostics` | string | Operator status log consistent with the metric thresholds below. Threshold hits are a short multi-sentence log. Nominal metrics use one general status sentence. |
 
 ## Time semantics
 
@@ -28,10 +28,10 @@ their per-robot order.
 
 Metric-based diagnostics use this priority:
 
-1. `battery_level_pct <= 15` produces `Battery voltage low.`
-2. Otherwise, `battery_temp_c >= 55` produces `Motor temperature high.`
-3. Otherwise, `motor_torque_nm >= 270` produces `Overcurrent protection active.`
-4. Otherwise, the generator selects a general operational or non-metric diagnostic.
+1. `battery_level_pct <= 15` produces a low-reserve battery log (`LOW_BATTERY_DIAGNOSTIC` in `bot_generator.py`).
+2. Otherwise, `battery_temp_c >= 55` produces a high-temperature log (`HIGH_TEMP_DIAGNOSTIC`).
+3. Otherwise, `motor_torque_nm >= 270` produces an overcurrent log (`HIGH_TORQUE_DIAGNOSTIC`).
+4. Otherwise, the generator selects one general operational sentence.
 
 ## Compatibility
 

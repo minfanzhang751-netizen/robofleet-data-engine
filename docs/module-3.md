@@ -3,7 +3,8 @@
 In-cluster event-time sliding windows over `robot-telemetry`, with PySpark
 Structured Streaming as the primary path and a handwritten Kafka consumer as
 the resume/interview comparison baseline. Window results feed an independent
-LLM client (mock classifier today; Module 4 swaps the backend).
+LLM client (vLLM when `CLASSIFIER=vllm`; mock remains for `CLASSIFIER=mock`).
+Module 4's GPU path is [module-4.md](module-4.md).
 
 ## Architecture
 
@@ -12,7 +13,7 @@ bot_generator (host)
     → robot-telemetry
          → spark-window Pod (local[2]) → robot-telemetry-windows
          → baseline-window Pod (memory) → robot-telemetry-windows-baseline
-    → llm-client Pod (mock) ← robot-telemetry-windows
+    → llm-client Pod ← robot-telemetry-windows
          → robot-diagnostics-classified
 ```
 

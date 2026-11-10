@@ -16,10 +16,14 @@ The system consists of 5 core modules, built for a WSL 2 (Ubuntu) local environm
 - **Module 3: Stream Processor (Completed locally)** 
   In-cluster PySpark Structured Streaming (primary) plus handwritten baseline
   comparator: event-time sliding windows (60s/10s, 30s watermark) into Kafka
-  topics, then a mock LLM client service emitting classifications (Module 4
-  swaps the model backend).
+  topics (including a bounded `status_log`), then an LLM client that calls
+  in-cluster vLLM (mock remains available when `CLASSIFIER=mock`).
 - **Module 4: Edge MLOps Layer (GPU Accelerated)** 
-  An LLM inference API (e.g., vLLM or FastAPI) utilizing an NVIDIA RTX 4090 via Kubernetes GPU pass-through. It receives unstructured logs from the Stream Processor and returns real-time classifications (Safe/Warning/Critical).
+  vLLM (`Qwen/Qwen2.5-3B-Instruct`) in the Kind cluster on the RTX 4090 via the
+  NVIDIA device plugin (`nvidia.com/gpu: 1`). The client sends the window
+  status log plus averages and writes `Safe` / `Warning` / `Critical`. See
+  [docs/module-4.md](docs/module-4.md). Host GPU setup and a Kind recreate are
+  required before the pod can see the card.
 - **Module 5: Observability** 
   Prometheus and Grafana deployed in K8s to monitor Kafka consumer lag, API latency, and GPU metrics (DCGM Exporter).
 
@@ -32,9 +36,10 @@ Whenever you generate code or configurations for this project, you MUST adhere t
 5. **Infrastructure as Code (IaC):** K8s deployments must be written in clean, declarative YAML files.
 
 ## 4. Current Status & Next Steps
-Modules 1–3 are in place locally (generator, Kind/Strimzi Kafka, in-cluster
-PySpark + baseline + mock LLM client). Next: Module 4 real vLLM on RTX 4090,
-then observability (Module 5).
+Modules 1–3 are in place locally. Module 4 code (status log through the window,
+vLLM client, device plugin, and vLLM Deployment) is in the repo. Bringing the
+RTX 4090 into Kind follows [docs/module-4.md](docs/module-4.md). Next:
+observability (Module 5).
 
 **ACTION REQUIRED:**
 Do NOT generate any code right now. Simply acknowledge that you have read, understood, and internalized this architecture and these engineering standards. Reply with: "Context loaded successfully. I understand the architecture and engineering standards. Ready for the next phase when you are."

@@ -1,0 +1,101 @@
+# In-cluster vLLM. The official image entrypoint is `vllm serve`; args are
+# engine flags. First start downloads Qwen2.5-3B-Instruct into the PVC.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm
+  namespace: robofleet
+  labels:
+    app: vllm
+spec:
+  replicas: 1
+  # One GPU. A rolling update keeps the old pod until the new one is Ready,
+  # and the new one cannot schedule while the old one holds the card.
+  strategy:
+    type: Recreate
+  progressDeadlineSeconds: 1800
+  selector:
+    matchLabels:
+      app: vllm
+  template:
+    metadata:
+      labels:
+        app: vllm
+    spec:
+      runtimeClassName: nvidia
+      # The Service is named vllm, so Kubernetes would inject
+      # VLLM_PORT=tcp://<cluster-ip>:8000. vLLM treats VLLM_PORT as its
+      # listen port and exits. The device plugin still sets
+      # NVIDIA_VISIBLE_DEVICES when it allocates the GPU.
+      enableServiceLinks: false
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:v0.11.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - --model
+            - Qwen/Qwen2.5-3B-Instruct
+            - --max-model-len
+            - "2048"
+            - --gpu-memory-utilization
+            - "0.85"
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: HF_HOME
+              value: /root/.cache/huggingface
+            - name: HUGGING_FACE_HUB_CACHE
+              value: /root/.cache/huggingface
+          volumeMounts:
+            - name: model-cache
+              mountPath: /root/.cache/huggingface
+            - name: shm
+              mountPath: /dev/shm
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 90
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "2"
+              memory: 8Gi
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "4"
+              memory: 16Gi
+              nvidia.com/gpu: "1"
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: vllm-model-cache
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm
+  namespace: robofleet
+spec:
+  selector:
+    app: vllm
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

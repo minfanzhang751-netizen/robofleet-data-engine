@@ -115,10 +115,12 @@ class BaselineWindowService:
         """
         payload = json.loads(raw.decode("utf-8"))
         event_time = parse_event_time(str(payload["timestamp"]))
+        diagnostics = payload.get("diagnostics", "")
         closed, dropped_late = self._engine.ingest(
             bot_id=int(payload["bot_id"]),
             event_time=event_time,
             metrics=payload["metrics"],
+            diagnostics=str(diagnostics) if isinstance(diagnostics, str) else "",
         )
         if dropped_late:
             self._dropped_late += 1

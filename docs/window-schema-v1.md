@@ -18,6 +18,7 @@ Produced by Module 3 stream processors:
 | `metrics_avg.battery_temp_c` | number | Mean battery temperature (°C) in the window. |
 | `metrics_avg.motor_torque_nm` | number | Mean motor torque (N·m) in the window. |
 | `event_count` | integer | Number of telemetry events aggregated (>= 1). |
+| `status_log` | string | Up to 8 telemetry `diagnostics` lines from this window, earliest event time first, joined by newlines. Empty when every line was blank. |
 | `processor` | string | `"spark"` or `"baseline"`. |
 | `emitted_at` | string | Processing-time emit instant (UTC ISO8601); for latency metrics. |
 
@@ -30,6 +31,10 @@ Produced by Module 3 stream processors:
   (stream watermark delay) are dropped and do not update aggregates.
 - A window result is emitted once the watermark reaches `window_end` (no further
   on-time events can arrive for that window).
+- `status_log` keeps the earliest 8 non-empty `diagnostics` strings in event-time
+  order. Later lines in the same window are dropped. Spark checkpoint state for
+  this aggregate lives under `robot-telemetry-windows-v2` so the previous
+  averages-only checkpoint is not reused.
 
 ## Compatibility
 

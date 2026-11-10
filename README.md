@@ -7,9 +7,10 @@ Kubernetes-native stream processing and MLOps platform. A simulated fleet of aut
 - Module 1: hardened telemetry generator (schema v1, SIGTERM, diagnostics)
 - Module 2: Kind + Strimzi Kafka + host producer — [runbook](docs/module-2.md)
 - Module 3: in-cluster PySpark Structured Streaming + baseline comparator +
-  mock LLM client — [runbook](docs/module-3.md)
+  LLM client — [runbook](docs/module-3.md)
+- Module 4: in-cluster vLLM on the RTX 4090 — [runbook](docs/module-4.md)
 
-Later: real vLLM on RTX 4090, Prometheus/Grafana.
+Later: Prometheus/Grafana.
 
 ## Prerequisites
 
@@ -47,6 +48,14 @@ Contracts: [telemetry v1](docs/event-schema-v1.md), [windows v1](docs/window-sch
 ./scripts/kafka-install.sh    # if Kafka not already up
 ./scripts/stream-install.sh   # topics + images + Deployments
 ./scripts/bench-module-3.sh   # snapshot lag/resources under load
+```
+
+## Module 4 (vLLM) quick start
+
+Host GPU and a Kind recreate come first. See [docs/module-4.md](docs/module-4.md).
+
+```bash
+./scripts/gpu-install.sh   # RuntimeClass + device plugin + vLLM + DLQ topic
 ```
 
 ## Test

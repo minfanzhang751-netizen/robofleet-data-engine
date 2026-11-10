@@ -15,7 +15,7 @@ backend without changing this contract) on topic `robot-diagnostics-classified`.
 | `metrics_avg` | object | Copied window averages (`battery_level_pct`, `battery_temp_c`, `motor_torque_nm`). |
 | `event_count` | integer | Copied from the window event. |
 | `label` | string | One of `Safe`, `Warning`, `Critical`. |
-| `model` | string | `"mock"` for Module 3; Module 4 sets the real model id. |
+| `model` | string | `"mock"` when `CLASSIFIER` is unset. Module 4 sets the served model id, default `Qwen/Qwen2.5-3B-Instruct`. |
 | `latency_ms` | number | Client-measured classifier call latency in milliseconds. |
 | `classified_at` | string | UTC ISO8601 when classification completed. |
 
@@ -29,5 +29,7 @@ Applied to window averages (priority order):
 
 ## Compatibility
 
-Module 4 must keep field names and `label` enum stable. Only `model` and
-internal scoring may change.
+Module 4 keeps field names and the `label` enum stable. The vLLM path writes
+the real model id into `model`. Windows that never yield a legal label are not
+written here; they go to `robot-diagnostics-dlq` (see [module-4.md](module-4.md)).
+Mock threshold rules are not applied on that failure path.

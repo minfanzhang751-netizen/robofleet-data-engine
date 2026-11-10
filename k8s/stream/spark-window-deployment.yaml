@@ -31,7 +31,7 @@ spec:
             - name: KAFKA_OUTPUT_TOPIC
               value: robot-telemetry-windows
             - name: SPARK_CHECKPOINT_DIR
-              value: /checkpoints/robot-telemetry-windows
+              value: /checkpoints/robot-telemetry-windows-v2
             - name: SPARK_MASTER
               value: local[2]
           volumeMounts:

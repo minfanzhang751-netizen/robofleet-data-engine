@@ -1,0 +1,14 @@
+# Windows that never yield a legal label. Not a classified-schema record.
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: robot-diagnostics-dlq
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: robofleet
+spec:
+  partitions: 6
+  replicas: 1
+  config:
+    retention.ms: "86400000"
+    cleanup.policy: delete
