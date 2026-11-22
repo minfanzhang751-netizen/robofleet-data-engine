@@ -1,0 +1,20 @@
+# Scrape llm-client business metrics (classify latency, classified/dlq counts).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: llm-client
+  namespace: observability
+  labels:
+    app: llm-client
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - robofleet
+  selector:
+    matchLabels:
+      app: llm-client
+  endpoints:
+    - port: metrics
+      interval: 15s
+      path: /metrics

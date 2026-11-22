@@ -1,0 +1,66 @@
+# RoboFleet Module 5 alert rules (evaluated by kube-prometheus-stack).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: robofleet-alerts
+  namespace: observability
+  labels:
+    app: robofleet
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: robofleet.kafka
+      rules:
+        - alert: RoboFleetConsumerLagHigh
+          expr: |
+            max by (consumergroup) (
+              kafka_consumergroup_lag{consumergroup=~"robofleet-.*"}
+            ) > 500
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High Kafka consumer lag for {{ $labels.consumergroup }}"
+            description: >
+              Consumer group {{ $labels.consumergroup }} lag is {{ $value }}
+              for more than 5 minutes.
+    - name: robofleet.classify
+      rules:
+        - alert: RoboFleetClassifyLatencyHigh
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (le) (rate(robofleet_classify_latency_ms_bucket[5m]))
+            ) > 2000
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Classify p95 latency above 2s"
+            description: >
+              llm-client classify p95 is {{ $value }} ms over the last 10 minutes.
+    - name: robofleet.gpu
+      rules:
+        - alert: RoboFleetGpuMemoryHigh
+          expr: |
+            (
+              DCGM_FI_DEV_FB_USED
+              / clamp_min(DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE, 1)
+            ) > 0.95
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "GPU frame-buffer utilization above 95%"
+            description: >
+              DCGM reports GPU memory utilization {{ $value | humanizePercentage }}
+              for more than 10 minutes.
+        - alert: RoboFleetGpuUtilHigh
+          expr: DCGM_FI_DEV_GPU_UTIL > 95
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "GPU utilization above 95%"
+            description: >
+              DCGM GPU util is {{ $value }}% for more than 15 minutes.

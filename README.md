@@ -9,8 +9,7 @@ Kubernetes-native stream processing and MLOps platform. A simulated fleet of aut
 - Module 3: in-cluster PySpark Structured Streaming + baseline comparator +
   LLM client — [runbook](docs/module-3.md)
 - Module 4: in-cluster vLLM on the RTX 4090 — [runbook](docs/module-4.md)
-
-Later: Prometheus/Grafana.
+- Module 5: Prometheus / Grafana / DCGM — [runbook](docs/module-5.md)
 
 ## Prerequisites
 
@@ -56,6 +55,17 @@ Host GPU and a Kind recreate come first. See [docs/module-4.md](docs/module-4.md
 
 ```bash
 ./scripts/gpu-install.sh   # RuntimeClass + device plugin + vLLM + DLQ topic
+```
+
+## Module 5 (observability) quick start
+
+Kafka + stream (+ GPU for DCGM/vLLM panels) should already be up. See
+[docs/module-5.md](docs/module-5.md).
+
+```bash
+./scripts/observability-install.sh
+# Grafana: http://localhost:30300  (admin / robofleet)
+# Prometheus: http://localhost:30090
 ```
 
 ## Test

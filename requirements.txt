@@ -1,3 +1,5 @@
 # Phase 1 generator uses the standard library only when Kafka env is unset.
 # Module 2.3 host producer:
 confluent-kafka==2.15.1
+# Module 5 llm-client /metrics:
+prometheus_client==0.21.1

@@ -1,0 +1,20 @@
+# Scrape the OpenAI-compatible vLLM server Prometheus endpoint.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: vllm
+  namespace: observability
+  labels:
+    app: vllm
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - robofleet
+  selector:
+    matchLabels:
+      app: vllm
+  endpoints:
+    - port: http
+      interval: 30s
+      path: /metrics

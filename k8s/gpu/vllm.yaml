@@ -92,6 +92,8 @@ kind: Service
 metadata:
   name: vllm
   namespace: robofleet
+  labels:
+    app: vllm
 spec:
   selector:
     app: vllm
