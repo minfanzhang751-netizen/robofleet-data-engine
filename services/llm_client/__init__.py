@@ -1,4 +1,4 @@
-"""LLM client service package (Module 3 mock, Module 4 vLLM).
+"""LLM client service package (Module 3 mock, Module 4 vLLM, Module 5 metrics).
 
 Consumes window aggregates from ``robot-telemetry-windows``, applies a
 ``ClassifierClient``, and produces ``robot-diagnostics-classified``.
@@ -8,4 +8,5 @@ Public pieces:
 
 - ``classifier``: ``ClassifierClient``, ``MockClassifier``, ``VllmClassifier``
 - ``main``: Kafka consume/classify/produce loop for the Deployment
+- ``metrics``: Prometheus ``/metrics`` (classify latency, classified/DLQ counts)
 """

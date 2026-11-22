@@ -1,0 +1,7 @@
+# Module 5 observability stack (Prometheus, Grafana, exporters).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+  labels:
+    app.kubernetes.io/part-of: robofleet-data-engine

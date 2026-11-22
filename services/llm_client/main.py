@@ -34,6 +34,7 @@ from services.llm_client.classifier import (
     VllmClassifier,
     resolve_window,
 )
+from services.llm_client.metrics import ClientMetrics, default_metrics, start_metrics_server
 
 DEFAULT_BOOTSTRAP = "robofleet-kafka-bootstrap.kafka.svc:9092"
 DEFAULT_INPUT_TOPIC = "robot-telemetry-windows"
@@ -43,6 +44,7 @@ DEFAULT_GROUP = "robofleet-llm-client"
 DEFAULT_MAX_ATTEMPTS = 3
 DEFAULT_VLLM_BASE_URL = "http://vllm.robofleet.svc:8000/v1"
 DEFAULT_VLLM_MODEL = "Qwen/Qwen2.5-3B-Instruct"
+DEFAULT_METRICS_PORT = 8080
 
 
 def encode_bot_id_key(bot_id: int) -> bytes:
@@ -62,6 +64,8 @@ class LlmClientService:
         classifier: ClassifierClient,
         dlq_topic: str,
         max_attempts: int,
+        metrics: ClientMetrics | None = None,
+        metrics_port: int = DEFAULT_METRICS_PORT,
         stderr: IO[str] = sys.stderr,
     ) -> None:
         self._input_topic = input_topic
@@ -69,6 +73,8 @@ class LlmClientService:
         self._dlq_topic = dlq_topic
         self._classifier = classifier
         self._max_attempts = max_attempts
+        self._metrics = metrics if metrics is not None else default_metrics()
+        self._metrics_port = metrics_port
         self._stderr = stderr
         self._stop = Event()
         self._consumed = 0
@@ -141,6 +147,7 @@ class LlmClientService:
                 record,
             )
             self._produced += 1
+            self._metrics.observe_classified(float(record["latency_ms"]))
             print(
                 f"classified bot_id={record['bot_id']} label={record['label']} "
                 f"latency_ms={record['latency_ms']}",
@@ -150,6 +157,7 @@ class LlmClientService:
         else:
             self._produce_sync(self._dlq_topic, _dlq_key(record), record)
             self._dlq += 1
+            self._metrics.observe_dlq()
             print(
                 f"dlq reason={record['reason']}",
                 file=self._stderr,
@@ -159,6 +167,13 @@ class LlmClientService:
 
     def run(self) -> int:
         """Blocking consume loop; returns process exit code (0 ok, 1 on failure)."""
+        if self._metrics_port > 0:
+            start_metrics_server(self._metrics_port)
+            print(
+                f"metrics listening on :{self._metrics_port}/metrics",
+                file=self._stderr,
+                flush=True,
+            )
         self._consumer.subscribe([self._input_topic])
         print(
             "LLM client starting: "
@@ -207,6 +222,19 @@ def positive_attempts(raw: str | None) -> int:
     return parsed
 
 
+def metrics_port_from_env(raw: str | None) -> int:
+    """Parse ``METRICS_PORT``; blank uses default; ``0`` disables the HTTP server."""
+    if raw is None or not raw.strip():
+        return DEFAULT_METRICS_PORT
+    try:
+        parsed = int(raw.strip())
+    except ValueError:
+        return DEFAULT_METRICS_PORT
+    if parsed < 0:
+        return DEFAULT_METRICS_PORT
+    return parsed
+
+
 def classifier_from_env(env: Mapping[str, str]) -> ClassifierClient:
     """Select mock or vLLM. Unknown values fail at startup instead of falling back."""
     kind = env.get("CLASSIFIER", "mock").strip().lower() or "mock"
@@ -239,6 +267,7 @@ def build_from_env(
         classifier=classifier if classifier is not None else classifier_from_env(env),
         dlq_topic=env.get("KAFKA_DLQ_TOPIC", DEFAULT_DLQ_TOPIC).strip() or DEFAULT_DLQ_TOPIC,
         max_attempts=positive_attempts(env.get("CLASSIFIER_MAX_ATTEMPTS")),
+        metrics_port=metrics_port_from_env(env.get("METRICS_PORT")),
         stderr=stderr,
     )
 
