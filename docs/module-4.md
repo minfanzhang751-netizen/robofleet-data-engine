@@ -15,8 +15,9 @@ bot_generator (host)
 ```
 
 Baseline windows are still not consumed. `label` stays `Safe`, `Warning`, or
-`Critical`. `latency_ms` measures only `classify()`. `model` is the served
-model id (`Qwen/Qwen2.5-3B-Instruct` unless `VLLM_MODEL` overrides it).
+`Critical`. `latency_ms` is **classify latency** only (`classify()` wall time;
+see [metrics.md](metrics.md)). `model` is the served model id
+(`Qwen/Qwen2.5-3B-Instruct` unless `VLLM_MODEL` overrides it).
 
 ## 1. Prove the Docker engine can see the 4090
 
@@ -127,7 +128,7 @@ kubectl -n kafka exec robofleet-dual-role-0 -- \
 ```
 
 `model` is `Qwen/Qwen2.5-3B-Instruct`. `label` is one of the three enum values.
-`latency_ms` is the client-side classify call.
+`latency_ms` is client-side **classify latency** ([metrics.md](metrics.md)).
 
 ## DLQ record
 

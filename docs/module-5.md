@@ -1,14 +1,17 @@
 # Module 5: Observability
 
-Prometheus and Grafana run in the `observability` namespace. They scrape:
+Prometheus and Grafana run in the `observability` namespace. Metric names and
+boundaries (including **no end-to-end latency**): [metrics.md](metrics.md).
 
-- **Kafka consumer lag** via `kafka-exporter` (groups matching `robofleet-.*`)
-- **Classify latency** via llm-client `:8080/metrics` (`robofleet_classify_latency_ms`)
+They scrape:
+
+- **consumer lag** via `kafka-exporter` (groups matching `robofleet-.*`)
+- **classify latency** via llm-client `:8080/metrics` (`robofleet_classify_latency_ms`)
 - **vLLM engine metrics** via `vllm:8000/metrics`
 - **GPU** via DCGM Exporter (`DCGM_FI_DEV_*`)
 
-Alert rules live in `k8s/observability/prometheus-rules.yaml` (lag, classify
-p95, GPU memory/util).
+Alert rules live in `k8s/observability/prometheus-rules.yaml` (consumer lag,
+classify latency p95, GPU memory/util).
 
 ```text
 Kafka / llm-client / vLLM / GPU
@@ -67,8 +70,8 @@ python bot_generator.py --eps 10 --bots 20
 
 Leave it running a few minutes. Expect:
 
-- Kafka lag series for `robofleet-*` consumer groups
-- Classify p50/p95 after llm-client handles windows
+- **consumer lag** series for `robofleet-*` groups
+- **classify latency** p50/p95 after llm-client handles windows (not E2E)
 - DCGM GPU util / memory / temp when vLLM is Loaded
 - Alerts appear under Prometheus → Alerts when thresholds are breached
 
@@ -89,7 +92,7 @@ curl -s localhost:9400/metrics | grep DCGM_FI_DEV_GPU
 
 - DCGM needs the Module 4 `RuntimeClass` `nvidia` and a visible 4090. If the
   DaemonSet stays `ContainerCreating`, fix GPU injection first (`docs/module-4.md`).
-- One-shot lag/latency snapshots remain in `./scripts/bench-module-3.sh`; this
-  module is the continuous path.
+- One-shot **consumer lag** / **window emission latency** snapshots remain in
+  `./scripts/bench-module-3.sh`; this module is the continuous scrape path.
 - Grafana admin password is set in
   `k8s/observability/kube-prometheus-stack-values.yaml` for local demos only.

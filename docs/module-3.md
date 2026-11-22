@@ -2,8 +2,8 @@
 
 In-cluster event-time sliding windows over `robot-telemetry`, with PySpark
 Structured Streaming as the primary path and a handwritten Kafka consumer as
-the resume/interview comparison baseline. Window results feed an independent
-LLM client (vLLM when `CLASSIFIER=vllm`; mock remains for `CLASSIFIER=mock`).
+a side-by-side comparison baseline. Window results feed an independent LLM
+client (vLLM when `CLASSIFIER=vllm`; mock remains for `CLASSIFIER=mock`).
 Module 4's GPU path is [module-4.md](module-4.md).
 
 ## Architecture
@@ -57,7 +57,10 @@ set -a && source .env && set +a
 python bot_generator.py --eps 10 --bots 20
 ```
 
-## Benchmarks (all six metric classes)
+## Benchmarks
+
+Formal names and gaps (no end-to-end latency; broker-acked EPS / p99 not
+collected): [metrics.md](metrics.md).
 
 ```bash
 ./scripts/bench-module-3.sh
@@ -66,37 +69,40 @@ python bot_generator.py --eps 10 --bots 20
 
 | Metric | How to capture |
 |--------|----------------|
-| Throughput | Generator `--eps` × duration; window emit counts from consumer / logs |
-| Latency | `bench-module-3.sh` writes p50/p95 of `emitted_at - window_end` for Spark and baseline windows emitted during the run |
-| Lag | Same script writes max partition lag before load and immediately after the generator stops, for Spark prefix groups, baseline, and the LLM client |
+| offered EPS | Generator `--eps` (target rate for the run; not broker-acked) |
+| window emission latency | `bench-module-3.sh` writes p50/p95 of `emitted_at - window_end` for Spark and baseline windows whose `emitted_at` falls in the load interval |
+| consumer lag | Same script: max partition lag before load and right after the generator stops, for Spark prefix groups, baseline, and the LLM client |
 | Correctness | `python -m unittest tests.test_window_semantics -v` (gold averages) |
 | Resources | `kubectl -n robofleet top pods` (install metrics-server if needed) |
-| Comparison | Same EPS/duration: Spark vs baseline lag + CPU/RSS side-by-side |
+| Comparison | Same offered EPS / duration: Spark vs baseline **window emission latency** + consumer lag + CPU/RSS side-by-side |
 
 Template/results: [benchmarks/module-3-results.md](benchmarks/module-3-results.md).
 
-## Interview FAQ
+## Design FAQ
 
-**Why PySpark as primary?** Industrial keyword density for MLE/data roles;
-watermark + window API are standard talking points; upgrade path to cluster
-mode is documented without rewriting contracts.
+**Why PySpark as primary?** Common stream-processing stack with a standard
+event-time watermark and sliding-window API. Contracts stay stable if the job
+later moves from `local[2]` toward cluster mode.
 
-**Why keep a handwritten baseline?** Proves poll/commit/event-time understanding;
-enables A/B numbers on the resume instead of a single black-box job.
+**Why keep a handwritten baseline?** Makes poll/commit and event-time window
+semantics explicit, and lets the same load compare Spark vs baseline
+consumer lag and window emission latency instead of trusting a single
+black-box job.
 
-**Why in-cluster only for processors?** Matches the K8s-native narrative; resource
-and lag metrics are pod-scoped. Load generator stays on the host for fast
-iteration (not on the critical production path story).
+**Why in-cluster only for processors?** Matches the K8s-native deployment story;
+CPU/memory and consumer lag are pod-scoped. The load generator stays on the
+host for fast iteration and is not part of the in-cluster processing path.
 
-**Why a separate LLM client?** Isolates model latency from windowing; Module 4
-replaces `MockClassifier` / HTTP backend without changing
-`robot-diagnostics-classified` schema.
+**Why a separate LLM client?** Isolates **classify latency** from windowing;
+Module 4 swaps `MockClassifier` for the vLLM HTTP backend without changing
+the `robot-diagnostics-classified` schema.
 
-**Why `local[2]`?** Kind single-node MVP. Extends to Spark Operator / cluster
-mode later; contracts and topics stay stable.
+**Why `local[2]`?** Kind single-node MVP. Extends toward Spark Operator /
+cluster mode later; contracts and topics stay stable.
 
 **Known limits:** PLAINTEXT, RF=1, single-pod Spark, baseline memory state
-(no checkpoint). Honest limits + upgrade path beats a toy that pretends to be HA.
+(no checkpoint). Documented limits plus an upgrade path beat pretending the
+local stack is HA.
 
 ## Tear down stream apps
 

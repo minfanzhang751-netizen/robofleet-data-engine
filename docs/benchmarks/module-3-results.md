@@ -3,7 +3,7 @@
 ## Environment
 
 - Kind context: `kind-robofleet`
-- Generator EPS: `100`
+- Offered EPS (`--eps`): `100`
 - Duration (s): `120`
 - Drain wait (s): `40`
 - Git commit: `d15a114`
@@ -23,17 +23,9 @@ spark-window-5658bd98-w6khn        1/1     Running   0          124m   10.244.0.
 error: Metrics API not available
 metrics-server not available
 ```
-- Load start (UTC): `2026-10-24T19:42:08Z`Add Module 3 windowing and harden the Module 2 producer
+- Load start (UTC): `2026-10-24T19:42:08Z`
 
-## Lag before load
-
-| Group | Lag (max) |
-|-------|-----------|
-| `robofleet-spark-windows*` | group not found |
-| `robofleet-baseline-windows` | 0 |
-| `robofleet-llm-client` | 0 |
-
-## Lag after load
+## Consumer lag before load
 
 | Group | Lag (max) |
 |-------|-----------|
@@ -41,16 +33,27 @@ metrics-server not available
 | `robofleet-baseline-windows` | 0 |
 | `robofleet-llm-client` | 0 |
 
-- Latency sample end (UTC): `2026-10-24T19:44:56Z`
+## Consumer lag after load
 
-## Latency (`emitted_at - window_end`)
+| Group | Lag (max) |
+|-------|-----------|
+| `robofleet-spark-windows*` | group not found |
+| `robofleet-baseline-windows` | 0 |
+| `robofleet-llm-client` | 0 |
+
+- Window emission latency sample end (UTC): `2026-10-24T19:44:56Z`
+
+## Window emission latency (`emitted_at - window_end`)
 
 | Path | p50 (s) | p95 (s) | Sample size |
 |------|---------|---------|-------------|
 | Spark | 30.695 | 5653.706 | 207 |
 | Baseline | 30.011 | 5653.064 | 207 |
 
+p99 not reported. Glossary: [../metrics.md](../metrics.md).
+
 ## Notes
 
 - Fill correctness from `python -m unittest tests.test_window_semantics`.
-- Compare Spark vs baseline using lag (max) and the latency table above.
+- Compare Spark vs baseline using consumer lag (max) and the window emission
+  latency table above.

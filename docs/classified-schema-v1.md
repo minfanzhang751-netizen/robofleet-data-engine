@@ -16,7 +16,7 @@ backend without changing this contract) on topic `robot-diagnostics-classified`.
 | `event_count` | integer | Copied from the window event. |
 | `label` | string | One of `Safe`, `Warning`, `Critical`. |
 | `model` | string | `"mock"` when `CLASSIFIER` is unset. Module 4 sets the served model id, default `Qwen/Qwen2.5-3B-Instruct`. |
-| `latency_ms` | number | Client-measured classifier call latency in milliseconds. |
+| `latency_ms` | number | **Classify latency** only: wall time of a successful `classify()` call in milliseconds (not end-to-end, not window emission). See [metrics.md](metrics.md). |
 | `classified_at` | string | UTC ISO8601 when classification completed. |
 
 ## Mock decision rules (Module 3)
