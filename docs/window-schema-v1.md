@@ -20,7 +20,7 @@ Produced by Module 3 stream processors:
 | `event_count` | integer | Number of telemetry events aggregated (>= 1). |
 | `status_log` | string | Up to 8 telemetry `diagnostics` lines from this window, earliest event time first, joined by newlines. Empty when every line was blank. |
 | `processor` | string | `"spark"` or `"baseline"`. |
-| `emitted_at` | string | Processing-time emit instant (UTC ISO8601); for latency metrics. |
+| `emitted_at` | string | Processing-time emit instant (UTC ISO8601); used for **window emission latency** (`emitted_at − window_end`). See [metrics.md](metrics.md). |
 
 ## Window semantics
 
