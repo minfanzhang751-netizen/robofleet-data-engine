@@ -1,5 +1,8 @@
 # Telemetry Event Contract v1
 
+Runbook for the generator that produces this contract:
+[module-1.md](module-1.md).
+
 Each message is one UTF-8 JSON object on a single line. All fields are required.
 
 | Field | JSON type | Meaning and constraints |

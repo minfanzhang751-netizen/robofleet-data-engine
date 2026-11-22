@@ -8,11 +8,14 @@ Our objective is to build a highly scalable, Kubernetes-native stream processing
 The system consists of 5 core modules, built for a WSL 2 (Ubuntu) local environment, simulating a production-grade cloud deployment:
 
 - **Module 1: Data Generator (Completed)**
-  A Python script generating mock robot telemetry (JSON) and unstructured status logs at a configurable EPS (Events Per Second), outputting to `stdout`.
+  A Python script generating mock robot telemetry (JSON) and unstructured
+  status logs at a configurable EPS, outputting to `stdout` (Kafka via Module
+  2). See [docs/module-1.md](docs/module-1.md).
 - **Module 2: Message Broker (Completed locally)**
   Apache Kafka on Kind via the Strimzi Operator (KRaft single node), topic
   `robot-telemetry`, and a host Python producer (`kafka_sink.py`) publishing
-  v1 telemetry with `bot_id` as the message key.
+  v1 telemetry with `bot_id` as the message key. See
+  [docs/module-2.md](docs/module-2.md).
 - **Module 3: Stream Processor (Completed locally)**
   In-cluster PySpark Structured Streaming (primary) plus handwritten baseline
   comparator: event-time sliding windows (60s/10s, 30s watermark) into Kafka
@@ -39,5 +42,6 @@ Whenever you generate code or configurations for this project, you MUST adhere t
 
 ## 4. Current Status & Next Steps
 Modules 1–5 are implemented in-repo for the local Kind + Docker Desktop path.
-Runbooks: [module-2](docs/module-2.md), [module-3](docs/module-3.md),
-[module-4](docs/module-4.md), [module-5](docs/module-5.md).
+Runbooks: [module-1](docs/module-1.md), [module-2](docs/module-2.md),
+[module-3](docs/module-3.md), [module-4](docs/module-4.md),
+[module-5](docs/module-5.md).

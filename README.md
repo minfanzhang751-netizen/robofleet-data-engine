@@ -4,7 +4,7 @@ Kubernetes-native stream processing and MLOps platform. A simulated fleet of aut
 
 ## Current status
 
-- Module 1: hardened telemetry generator (schema v1, SIGTERM, diagnostics)
+- Module 1: hardened telemetry generator — [runbook](docs/module-1.md)
 - Module 2: Kind + Strimzi Kafka + host producer — [runbook](docs/module-2.md)
 - Module 3: in-cluster PySpark Structured Streaming + baseline comparator +
   LLM client — [runbook](docs/module-3.md)
@@ -25,18 +25,14 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Run the generator (host → Kafka)
+## Module 1 (generator) quick start
+
+Stdout-only or host → Kafka. Full runbook: [docs/module-1.md](docs/module-1.md).
 
 ```bash
-cp -n .env.example .env
-set -a && source .env && set +a
+source .venv/bin/activate
 python bot_generator.py --eps 5 --bots 100
 ```
-
-| Flag | Meaning | Default |
-|------|---------|---------|
-| `--eps` | Events per second | 5 |
-| `--bots` | Fleet size | 100 |
 
 Contracts: [telemetry v1](docs/event-schema-v1.md), [windows v1](docs/window-schema-v1.md),
 [classified v1](docs/classified-schema-v1.md).
